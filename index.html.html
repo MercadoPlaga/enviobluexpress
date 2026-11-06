@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora Blue Express</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: una columna de trabajo — envío, bultos, productos arriba; costo del envío y margen del pedido abajo, como una guía de despacho */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --line:#dbe1ea; --fg:#14202e; --muted:#5d6b7c;
+  --accent:#1747c9; --accent-soft:#e7edfb; --warn:#9a5208; --warn-soft:#fdf0de; --bad:#b42318; --bad-soft:#fde8e6; --good:#1f7a4a; --good-soft:#e2f4ea;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141c; --surface:#151d28; --line:#2a3647; --fg:#e6ecf3; --muted:#93a1b3;
+  --accent:#7ea2ff; --accent-soft:#1c2a47; --warn:#f0b35c; --warn-soft:#3a2a12; --bad:#ff8a7e; --bad-soft:#3d1c19; --good:#6fd39b; --good-soft:#15301f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141c; --surface:#151d28; --line:#2a3647; --fg:#e6ecf3; --muted:#93a1b3;
+  --accent:#7ea2ff; --accent-soft:#1c2a47; --warn:#f0b35c; --warn-soft:#3a2a12; --bad:#ff8a7e; --bad-soft:#3d1c19; --good:#6fd39b; --good-soft:#15301f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:end}
+.htext{display:grid;gap:4px;min-width:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{margin:0;font-size:28px;line-height:1.15;text-wrap:balance}
+h2{margin:0;font-size:16px}
+.sub{color:var(--muted);margin:0;max-width:68ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:14px}
+.between{justify-content:space-between;align-items:center}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+input,select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=number]{font-family:var(--mono);width:100%}
+input[type=text]{width:100%}
+.f-region{flex:2 1 220px}.f-serv{flex:2 1 220px}.f-cob{flex:1 1 170px}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.check span{color:var(--muted)}
+.list{display:grid;gap:8px}
+.piece{display:grid;grid-template-columns:52px repeat(4,minmax(0,1fr)) 36px;gap:8px;align-items:end}
+.prod{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr) 36px;gap:8px;align-items:end}
+.piece .n{font-family:var(--mono);font-size:13px;color:var(--muted);padding-bottom:9px}
+.unit{font-size:11px;color:var(--muted);font-weight:400}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 12px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
+button.x{padding:8px 0;color:var(--muted)}
+button:disabled{opacity:.4;cursor:default}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:500}
+td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.win{font-weight:600;color:var(--accent)}
+td.lbl{font-family:var(--sans)}
+tr.sum td{font-weight:600;border-bottom:none}
+tr.sum td.lbl{font-weight:700}
+.neg{color:var(--bad)} .pos{color:var(--good)}
+.chip{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tot{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px}
+.tot .k{font-size:12px;color:var(--muted)}
+.tot .v{font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.tot.main{background:var(--accent-soft);border-color:transparent}
+.tot.main .v{color:var(--accent)}
+.tot.neg .v{color:var(--bad)} .tot.pos .v{color:var(--good)}
+.alerts{display:grid;gap:8px}
+.alert{border-radius:8px;padding:10px 12px;font-size:14px}
+.alert ul{margin:4px 0 0;padding-left:18px}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.info{background:var(--accent-soft);color:var(--accent)}
+.hint{font-size:12px;color:var(--muted);line-height:1.4}
+.hint strong{color:var(--accent);font-weight:600}
+input.auto{border-color:var(--accent);background:var(--accent-soft)}
+.alert.bad{background:var(--bad-soft);color:var(--bad)}
+.note{font-size:13px;color:var(--muted);margin:0;max-width:75ch}
+details{font-size:14px} summary{cursor:pointer;font-weight:600}
+.rules{margin:8px 0 0;padding-left:18px;color:var(--muted);display:grid;gap:4px}
+@media (max-width:560px){
+  .piece{grid-template-columns:repeat(4,minmax(0,1fr)) 32px}
+  .piece .n{grid-column:1/-1;padding:0}
+  .prod{grid-template-columns:minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr) 32px}
+  .prod .pname{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="htext">
+      <span class="eyebrow">Mercado Plaga · Despacho desde Santiago</span>
+      <h1>Calculadora Blue Express</h1>
+      <p class="sub">Costo real por bulto según el tarifario Pyme Integrado y margen del pedido. Ingresa las medidas de cada caja tal como sale de bodega.</p>
+    </div>
+    <div class="row" style="gap:8px;align-items:center"><span id="upd" class="unit" aria-live="polite"></span><button id="recalc" class="primary" type="button">↻ Actualizar cálculo</button><button id="reset" type="button">Limpiar todo</button></div>
+  </header>
+
+  <section class="panel" aria-labelledby="h-envio">
+    <h2 id="h-envio">Envío</h2>
+    <div class="row">
+      <div class="field f-region"><label for="region">Región de destino</label><select id="region"></select></div>
+      <div class="field f-serv"><label for="serv">Servicio</label><select id="serv"></select></div>
+      <div class="field f-cob"><label for="cobrado">Envío cobrado al cliente <span class="unit">(con IVA)</span></label><input id="cobrado" type="text" inputmode="numeric" autocomplete="off" placeholder="0" value=""><span id="cobHint" class="hint"></span></div>
+    </div>
+    <div class="alert info"><strong>Las tarifas de Blue Express ya incluyen IVA.</strong> Para el margen se les descuenta el IVA (÷ 1,19).</div>
+    <div class="alerts" id="servAlerts"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-bultos">
+    <div class="row between">
+      <h2 id="h-bultos">Bultos</h2>
+      <button id="add" class="primary" type="button">+ Agregar bulto</button>
+    </div>
+    <div class="list" id="pieces"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-prod">
+    <div class="row between">
+      <h2 id="h-prod">Productos del pedido</h2>
+      <button id="addProd" class="primary" type="button">+ Agregar producto</button>
+    </div>
+    <div class="list" id="prods"></div>
+    <p class="note">Costo unitario sin IVA, como figura en la factura del proveedor. Precio de venta con IVA, como aparece en Shopify.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-res">
+    <h2 id="h-res">Costo del envío</h2>
+    <div class="alerts" id="alerts"></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Bulto</th><th>Físico</th><th>Volumétrico</th><th>Cobrable</th><th>Tramo</th><th>Base</th><th>Exceso</th><th>Total <span class="unit">(con IVA)</span></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+    <div class="totals" id="totals"></div>
+    <p class="note" id="platform"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-mar">
+    <h2 id="h-mar">Margen del pedido <span class="unit">(todo en neto, sin IVA)</span></h2>
+    <div class="tablewrap"><table id="margin"></table></div>
+    <div class="totals" id="mtotals"></div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Reglas que usa el cálculo</summary>
+      <ul class="rules">
+        <li>Peso volumétrico = largo × ancho × alto (cm) / 4.000.</li>
+        <li>Se cobra el mayor entre peso físico y volumétrico, <strong>por cada bulto</strong>.</li>
+        <li>Tramos: XS 0–0,5 kg · S 0,5–3 · M 3–6 · L 6–16 · XL 16–25.</li>
+        <li>Sobre 25 kg: tarifa XL + $320 por kilo adicional (se redondea hacia arriba al kilo).</li>
+        <li>Las tarifas Blue incluyen IVA. Se comparan directo con lo cobrado al cliente, y para el margen se pasan a neto (÷ 1,19).</li>
+        <li>Retiro en Punto Blue Express: máximo 70 × 70 × 70 cm o 20 kg por bulto. A domicilio no aplica el límite de medidas, porque Blue retira en camión.</li>
+        <li>Aéreo: disponible solo en algunas comunas. No acepta latas de aerosol, y los productos rotulados deben ir con su ficha de seguridad. Arica, Tarapacá, Antofagasta, Aysén y Magallanes usan la tabla Priority aérea; el resto, la tabla Express/Priority.</li>
+        <li>La plataforma de Blue muestra los totales sumados de todos los bultos. El cobro se calcula bulto por bulto.</li>
+        <li>Margen = venta neta de productos + envío cobrado neto − costo de productos − costo Blue neto.</li>
+      </ul>
+    </details>
+  </section>
+</div>
+
+<script>
+const TR=["XS","S","M","L","XL"];
+const REG=[
+ ["AP","Arica y Parinacota"],["TA","Tarapacá"],["AN","Antofagasta"],["AT","Atacama"],["CO","Coquimbo"],["VS","Valparaíso"],
+ ["RM","Metropolitana de Santiago"],["LI","O'Higgins"],["ML","Maule"],["NB","Ñuble"],["BI","Biobío"],["AR","Araucanía"],
+ ["LR","Los Ríos"],["LL","Los Lagos"],["AI","Aysén"],["MA","Magallanes"]];
+const EXTREMAS=["AP","TA","AN","AI","MA"];
+const DOM={AT:[4850,5900,7700,9900,13800],CO:[4600,5300,7000,9600,12800],VS:[3900,4500,6000,7700,9700],RM:[3100,3650,4700,5700,7600],
+ LI:[4000,4800,6400,8300,11300],ML:[4200,5200,6700,8900,12100],NB:[4600,5400,7200,9200,12600],BI:[4700,5700,7300,9500,12800],
+ AR:[4950,5900,7700,9900,13800],LR:[5300,6100,8300,10000,14200],LL:[5300,6100,8300,10000,14200],
+ AP:[7150,8300,12400,17000,25000],TA:[6550,7400,10700,15500,23000],AN:[6300,7000,9900,14000,21000],AI:[8000,9500,14000,21500,28500],MA:[8000,9500,14000,21500,28500]};
+const PRI={AP:[7700,14971,27203,48263,91861],TA:[7667,15917,26917,46976,89205],AN:[7590,15587,26246,44710,83749],AI:[9130,15356,25146,44523,81664],MA:[9438,16610,27654,50776,95095]};
+const PTO={AP:[6350,7500,11600,16200,24200],TA:[5750,6600,9900,14700,22200],AN:[5500,6200,9100,13200,20200],AT:[4050,5100,6900,9100,13000],
+ CO:[3800,4500,6200,8800,12000],VS:[3100,3700,5200,6900,8900],RM:[2300,2850,3900,4900,6800],LI:[3200,4000,5600,7500,10500],
+ ML:[3400,4400,5900,8100,11300],NB:[3800,4600,6400,8400,11800],BI:[3900,4900,6500,8700,12000],AR:[4150,5100,6900,9100,13000],
+ LR:[4500,5300,7500,9200,13400],LL:[4500,5300,7500,9200,13400],AI:[7200,8700,13200,20700,27700],MA:[7200,8700,13200,20700,27700]};
+const EXTRA_KG=320, DIV=4000, IVA=0.19, PTO_CM=70, PTO_KG=20;
+
+const $=id=>document.getElementById(id);
+const clp=n=>(n<0?"–$":"$")+Math.abs(Math.round(n)).toLocaleString("es-CL");
+const kg=n=>n.toLocaleString("es-CL",{minimumFractionDigits:2,maximumFractionDigits:2})+" kg";
+const pct=n=>isFinite(n)?n.toLocaleString("es-CL",{maximumFractionDigits:1})+"%":"—";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let pieces=[], prods=[], autoCob=true;
+// Acepta "17,5" o "17.5" en medidas y kilos
+const numDec=v=>{let s=String(v??"").trim().replace(/\s/g,""); if(s.includes(",")) s=s.replace(/\./g,"").replace(",","."); const n=parseFloat(s); return isFinite(n)&&n>0?n:0;};
+// Acepta "$29.866", "29866" o "29.866" en montos en pesos
+const numMoney=v=>{const s=String(v??"").replace(/[^\d,]/g,"").replace(",","."); const n=parseFloat(s); return isFinite(n)&&n>0?n:0;};
+// El formulario es la fuente de verdad: se relee completo en cada cálculo
+function readState(){
+  const pr=[...$("pieces").querySelectorAll(".piece")].map(r=>[...r.querySelectorAll("input")].map(i=>i.value));
+  if(pr.length) pieces=pr;
+  const qr=[...$("prods").querySelectorAll(".prod")].map(r=>[...r.querySelectorAll("input")].map(i=>i.value));
+  if(qr.length) prods=qr;
+}
+
+$("region").innerHTML=REG.map(([c,n])=>`<option value="${c}">${n}</option>`).join("");
+function fillServ(){
+  const r=$("region").value, cur=$("serv").value, ext=EXTREMAS.includes(r);
+  const opts=[["dom",ext?"A domicilio · Express terrestre":"A domicilio · Express"],["pto","Retiro en Punto Blue Express"],["aer","Aéreo · Priority"]];
+  $("serv").innerHTML=opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join("");
+  if(opts.some(o=>o[0]===cur)) $("serv").value=cur;
+}
+function table(){const r=$("region").value,s=$("serv").value;
+  if(s==="pto") return PTO[r];
+  if(s==="aer") return EXTREMAS.includes(r)?PRI[r]:DOM[r];
+  return DOM[r];}
+function tramo(w){return w<=0.5?0:w<=3?1:w<=6?2:w<=16?3:4;}
+function cost(w,t){const i=tramo(w);const base=t[i];const ex=w>25?Math.ceil(w-25-1e-9)*EXTRA_KG:0;return{i,base,ex,neto:base+ex};}
+
+function renderPieces(){
+  $("pieces").innerHTML=pieces.map((p,i)=>`
+    <div class="piece">
+      <span class="n">Bulto ${i+1}</span>
+      ${["Largo","Ancho","Alto","Peso"].map((lab,j)=>`<div class="field"><label for="p${i}_${j}">${lab} <span class="unit">${j<3?"cm":"kg"}</span></label>
+        <input id="p${i}_${j}" type="text" inputmode="decimal" autocomplete="off" value="${esc(p[j])}"></div>`).join("")}
+      <button class="x" type="button" data-del="${i}" aria-label="Quitar bulto ${i+1}" ${pieces.length<2?"disabled":""}>✕</button>
+    </div>`).join("");
+}
+function renderProds(){
+  const labs=["Producto","Cant.","Costo unit. <span class=\"unit\">(neto)</span>","Precio venta unit. <span class=\"unit\">(con IVA)</span>"];
+  $("prods").innerHTML=prods.map((p,i)=>`
+    <div class="prod">
+      ${labs.map((lab,j)=>`<div class="field${j===0?" pname":""}"><label for="q${i}_${j}">${lab}</label>
+        <input id="q${i}_${j}" type="text" autocomplete="off" ${j===0?'placeholder="Nombre o SKU"':j===1?'inputmode="decimal"':'inputmode="numeric"'} value="${esc(p[j])}"></div>`).join("")}
+      <button class="x" type="button" data-pdel="${i}" aria-label="Quitar producto ${i+1}" ${prods.length<2?"disabled":""}>✕</button>
+    </div>`).join("");
+}
+
+function servAlerts(){
+  const s=$("serv").value, out=[];
+  if(s==="pto") out.push(`<div class="alert warn"><strong>Retiro en Punto Blue Express:</strong> cada bulto puede medir como máximo ${PTO_CM} × ${PTO_CM} × ${PTO_CM} cm y pesar hasta ${PTO_KG} kg.</div>`);
+  if(s==="aer") out.push(`<div class="alert warn"><strong>Servicio aéreo:</strong><ul>
+    <li>Disponible solo para algunas comunas. Confirma la comuna de destino antes de ofrecerlo.</li>
+    <li>No se pueden enviar latas de aerosol.</li>
+    <li>Los productos rotulados deben ir con su ficha de seguridad.</li></ul></div>`);
+  $("servAlerts").innerHTML=out.join("");
+}
+
+function calc(){
+  readState(); servAlerts();
+  const t=table(), s=$("serv").value, alerts=[];
+  let sumF=0,sumV=0,sumVol=0,total=0;
+  const rows=pieces.map((p,i)=>{
+    const [L,A,H,W]=p.map(numDec); const vol=L*A*H; const vw=vol/DIV; const cw=Math.max(W,vw);
+    sumF+=W;sumV+=vw;sumVol+=vol;
+    const c=cw>0?cost(cw,t):{i:null,base:0,ex:0,neto:0};
+    total+=c.neto;
+    const tooBig=s==="pto"&&[L,A,H].some(d=>d>PTO_CM), tooHeavy=s==="pto"&&W>PTO_KG;
+    if(tooBig) alerts.push(`Bulto ${i+1} mide ${L}×${A}×${H} cm y supera el máximo de ${PTO_CM}×${PTO_CM}×${PTO_CM} cm para Punto Blue Express.`);
+    if(tooHeavy) alerts.push(`Bulto ${i+1} pesa ${kg(W)} y supera el máximo de ${PTO_KG} kg para Punto Blue Express.`);
+    const flags=(tooBig?' <span class="chip bad">&gt;70 cm</span>':"")+(tooHeavy?' <span class="chip bad">&gt;20 kg</span>':"");
+    return `<tr><td>Bulto ${i+1}${flags}</td>
+      <td class="${W>=vw&&W>0?"win":""}">${kg(W)}</td><td class="${vw>W?"win":""}">${kg(vw)}</td><td>${kg(cw)}</td>
+      <td>${c.i===null?"—":`<span class="chip">${TR[c.i]}</span>`}</td><td>${c.base?clp(c.base):"—"}</td><td>${c.ex?clp(c.ex):"—"}</td>
+      <td><strong>${clp(c.neto)}</strong></td></tr>`;
+  });
+  if(s==="pto"&&(alerts.length)) alerts.push("Envíalo a domicilio (Blue retira en camión) o cambia el embalaje.");
+  $("tbody").innerHTML=rows.join("");
+  if(autoCob&&document.activeElement!==$("cobrado")){ $("cobrado").value=total>0?Math.round(total).toLocaleString("es-CL"):""; }
+  $("cobrado").classList.toggle("auto",autoCob&&total>0);
+  $("cobHint").innerHTML=autoCob
+    ? (total>0?"<strong>Rellenado automático</strong> con el costo Blue. Escribe otro monto si cobras distinto.":"¿No sabes cuánto cobrar? Déjalo en 0 y completa los bultos: se rellena solo con el costo Blue.")
+    : "Monto ingresado a mano. Bórralo o pon 0 para volver al cálculo automático.";
+  const cob=autoCob?total:numMoney($("cobrado").value), diff=cob-total;
+  const consW=Math.max(sumF,sumV), cons=consW>0?cost(consW,t).neto:0;
+  const ivaTxt="con IVA";
+  $("totals").innerHTML=`
+    <div class="tot main"><span class="k">Costo Blue Express (${pieces.length} bulto${pieces.length>1?"s":""}, ${ivaTxt})</span><span class="v">${clp(total)}</span></div>
+    <div class="tot"><span class="k">Envío cobrado al cliente</span><span class="v">${clp(cob)}</span></div>
+    <div class="tot ${diff<0?"neg":"pos"}"><span class="k">${diff<0?"Envío que absorbe Mercado Plaga":"Envío a favor"}</span><span class="v">${clp(Math.abs(diff))}</span></div>`;
+  $("platform").innerHTML=`Así lo mostraría la plataforma Blue: volumen total <strong>${(sumVol/1e6).toLocaleString("es-CL",{maximumFractionDigits:3})} m³</strong>, peso físico total <strong>${kg(sumF)}</strong>, peso volumétrico total <strong>${kg(sumV)}</strong>. Si Blue cobrara todo como un solo envío consolidado, serían ${clp(cons)} (${ivaTxt}).`;
+  $("alerts").innerHTML=alerts.map(a=>`<div class="alert bad">${a}</div>`).join("");
+  calcMargin(total/(1+IVA),cob);
+}
+
+function calcMargin(blueNeto,cob){
+  let venta=0,costo=0;
+  prods.forEach(p=>{const q=numDec(p[1]); venta+=q*numMoney(p[3])/(1+IVA); costo+=q*numMoney(p[2]);});
+  const envCobNeto=cob/(1+IVA), margProd=venta-costo, margEnv=envCobNeto-blueNeto, margen=margProd+margEnv, ingreso=venta+envCobNeto;
+  const cls=n=>n<0?"neg":"";
+  $("margin").innerHTML=`<tbody>
+    <tr><td class="lbl">Venta de productos (neta)</td><td>${clp(venta)}</td></tr>
+    <tr><td class="lbl">Costo de productos</td><td>${clp(-costo)}</td></tr>
+    <tr class="sum"><td class="lbl">Margen de productos</td><td class="${cls(margProd)}">${clp(margProd)} · ${pct(venta?margProd/venta*100:NaN)}</td></tr>
+    <tr><td class="lbl">Envío cobrado al cliente (neto)</td><td>${clp(envCobNeto)}</td></tr>
+    <tr><td class="lbl">Costo Blue Express (neto)</td><td>${clp(-blueNeto)}</td></tr>
+    <tr class="sum"><td class="lbl">Resultado del envío</td><td class="${cls(margEnv)}">${clp(margEnv)}</td></tr>
+  </tbody>`;
+  $("mtotals").innerHTML=`
+    <div class="tot main"><span class="k">Margen final del pedido (neto)</span><span class="v">${clp(margen)}</span></div>
+    <div class="tot ${margen<0?"neg":""}"><span class="k">Margen sobre venta neta</span><span class="v">${pct(ingreso?margen/ingreso*100:NaN)}</span></div>
+    <div class="tot"><span class="k">El envío se come del margen de productos</span><span class="v">${margEnv<0&&margProd>0?pct(-margEnv/margProd*100):"0%"}</span></div>`;
+}
+
+function reset(){
+  $("region").value="RM"; fillServ(); $("serv").value="dom"; autoCob=true; $("cobrado").value="";
+  pieces=[[0,0,0,0]]; prods=[["",1,0,0]]; renderPieces(); renderProds(); calc();
+}
+$("pieces").addEventListener("click",e=>{const d=e.target.closest("[data-del]"); if(d){readState(); if(pieces.length>1){pieces.splice(+d.dataset.del,1); renderPieces(); calc();}}});
+$("prods").addEventListener("click",e=>{const d=e.target.closest("[data-pdel]"); if(d){readState(); if(prods.length>1){prods.splice(+d.dataset.pdel,1); renderProds(); calc();}}});
+$("add").addEventListener("click",()=>{readState(); pieces.push([0,0,0,0]); renderPieces(); calc(); const ins=$("pieces").querySelectorAll("input"); ins[ins.length-4]?.focus();});
+$("addProd").addEventListener("click",()=>{readState(); prods.push(["",1,0,0]); renderProds(); calc(); const ins=$("prods").querySelectorAll("input"); ins[ins.length-4]?.focus();});
+$("reset").addEventListener("click",reset);
+$("region").addEventListener("change",()=>{fillServ(); calc();});
+// Si la persona escribe un monto, queda fijo; si lo borra o pone 0, vuelve a automático
+$("cobrado").addEventListener("input",e=>{autoCob=numMoney(e.target.value)===0;});
+$("cobrado").addEventListener("blur",e=>{if(numMoney(e.target.value)===0){autoCob=true; calc();}});
+// Recalcula ante cualquier cambio: al escribir, al salir del campo, al pegar o con autocompletar
+["input","change","keyup","paste","blur"].forEach(ev=>document.addEventListener(ev,e=>{if(e.target&&e.target.matches&&e.target.matches("input,select")) setTimeout(calc,0);},true));
+// Respaldo: revisa el formulario cada medio segundo y recalcula si algo cambió
+let sig="";
+const formSig=()=>[...document.querySelectorAll("input,select")].map(e=>e.value).join("|");
+setInterval(()=>{const s=formSig(); if(s!==sig){sig=s; calc();}},500);
+let updT;
+$("recalc").addEventListener("click",()=>{calc(); sig=formSig(); $("upd").textContent="Actualizado ✓"; clearTimeout(updT); updT=setTimeout(()=>$("upd").textContent="",1500);});
+reset();
+</script>
+
+</body>
+</html>
