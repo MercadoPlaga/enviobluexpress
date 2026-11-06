@@ -155,8 +155,9 @@ details{font-size:14px} summary{cursor:pointer;font-weight:600}
     <h2 id="h-res">Costo del envío</h2>
     <div class="alerts" id="alerts"></div>
     <div class="tablewrap"><table>
-      <thead><tr><th>Bulto</th><th>Físico</th><th>Volumétrico</th><th>Cobrable</th><th>Tramo</th><th>Base</th><th>Exceso</th><th>Total <span class="unit">(con IVA)</span></th></tr></thead>
+      <thead><tr><th>Bulto</th><th>Físico</th><th>Volumétrico</th><th>Peso cobrado</th><th>Tramo</th><th>Base</th><th>Exceso</th><th>Total <span class="unit">(con IVA)</span></th></tr></thead>
       <tbody id="tbody"></tbody>
+      <tfoot id="tfoot"></tfoot>
     </table></div>
     <div class="totals" id="totals"></div>
     <p class="note" id="platform"></p>
@@ -173,13 +174,12 @@ details{font-size:14px} summary{cursor:pointer;font-weight:600}
       <summary>Reglas que usa el cálculo</summary>
       <ul class="rules">
         <li>Peso volumétrico = largo × ancho × alto (cm) / 4.000.</li>
-        <li>Se cobra el mayor entre peso físico y volumétrico, <strong>por cada bulto</strong>.</li>
+        <li>Todos los bultos a una misma dirección se cobran como <strong>un solo envío</strong>: se suman los pesos físicos y los volumétricos de todos los bultos y se cobra el mayor de los dos totales (verificado con la factura Blue de julio 2026).</li>
         <li>Tramos: XS 0–0,5 kg · S 0,5–3 · M 3–6 · L 6–16 · XL 16–25.</li>
-        <li>Sobre 25 kg: tarifa XL + $320 por kilo adicional (se redondea hacia arriba al kilo).</li>
+        <li>Sobre 25 kg: tarifa XL + $320 por kilo adicional, proporcional a los decimales (sin redondear).</li>
         <li>Las tarifas Blue incluyen IVA. Se comparan directo con lo cobrado al cliente, y para el margen se pasan a neto (÷ 1,19).</li>
         <li>Retiro en Punto Blue Express: máximo 70 × 70 × 70 cm o 20 kg por bulto. A domicilio no aplica el límite de medidas, porque Blue retira en camión.</li>
         <li>Aéreo: disponible solo en algunas comunas. No acepta latas de aerosol, y los productos rotulados deben ir con su ficha de seguridad. Arica, Tarapacá, Antofagasta, Aysén y Magallanes usan la tabla Priority aérea; el resto, la tabla Express/Priority.</li>
-        <li>La plataforma de Blue muestra los totales sumados de todos los bultos. El cobro se calcula bulto por bulto.</li>
         <li>Sugerencia de bultos: usa las medidas y pesos de cada producto del maestro de Shopify. Los 100 pinchos galvanizados van siempre en 2 cajas de 105×30×30 cm y 14 kg (pack 50: 1 caja de 12 kg), y se aprovechan para meter productos que quepan. El resto se acomoda en cajas armadas a medida, con máximo 25 kg por bulto (20 kg en Punto Blue).</li>
         <li>Margen = venta neta de productos + envío cobrado neto − costo de productos − costo Blue neto.</li>
       </ul>
@@ -235,7 +235,8 @@ function table(){const r=$("region").value,s=$("serv").value;
   if(s==="aer") return EXTREMAS.includes(r)?PRI[r]:DOM[r];
   return DOM[r];}
 function tramo(w){return w<=0.5?0:w<=3?1:w<=6?2:w<=16?3:4;}
-function cost(w,t){const i=tramo(w);const base=t[i];const ex=w>25?Math.ceil(w-25-1e-9)*EXTRA_KG:0;return{i,base,ex,neto:base+ex};}
+// Exceso sobre 25 kg: $320 por kilo, proporcional (sin redondear), como en la factura Blue
+function cost(w,t){const i=tramo(w);const base=t[i];const ex=w>25?Math.round((w-25)*EXTRA_KG):0;return{i,base,ex,neto:base+ex};}
 
 function renderPieces(){
   $("pieces").innerHTML=pieces.map((p,i)=>`
@@ -270,36 +271,38 @@ function servAlerts(){
 function calc(){
   readState(); servAlerts(); applySuggestion();
   const t=table(), s=$("serv").value, alerts=[];
-  let sumF=0,sumV=0,sumVol=0,total=0;
+  let sumF=0,sumV=0,sumVol=0,separate=0;
   const rows=pieces.map((p,i)=>{
     const [L,A,H,W]=p.map(numDec); const vol=L*A*H; const vw=vol/DIV; const cw=Math.max(W,vw);
     sumF+=W;sumV+=vw;sumVol+=vol;
-    const c=cw>0?cost(cw,t):{i:null,base:0,ex:0,neto:0};
-    total+=c.neto;
+    if(cw>0) separate+=cost(cw,t).neto;
     const tooBig=s==="pto"&&[L,A,H].some(d=>d>PTO_CM), tooHeavy=s==="pto"&&W>PTO_KG;
     if(tooBig) alerts.push(`Bulto ${i+1} mide ${L}×${A}×${H} cm y supera el máximo de ${PTO_CM}×${PTO_CM}×${PTO_CM} cm para Punto Blue Express.`);
     if(tooHeavy) alerts.push(`Bulto ${i+1} pesa ${kg(W)} y supera el máximo de ${PTO_KG} kg para Punto Blue Express.`);
     const flags=(tooBig?' <span class="chip bad">&gt;70 cm</span>':"")+(tooHeavy?' <span class="chip bad">&gt;20 kg</span>':"");
     return `<tr><td>Bulto ${i+1}${flags}</td>
-      <td class="${W>=vw&&W>0?"win":""}">${kg(W)}</td><td class="${vw>W?"win":""}">${kg(vw)}</td><td>${kg(cw)}</td>
-      <td>${c.i===null?"—":`<span class="chip">${TR[c.i]}</span>`}</td><td>${c.base?clp(c.base):"—"}</td><td>${c.ex?clp(c.ex):"—"}</td>
-      <td><strong>${clp(c.neto)}</strong></td></tr>`;
+      <td>${kg(W)}</td><td>${kg(vw)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
   });
   if(s==="pto"&&(alerts.length)) alerts.push("Envíalo a domicilio (Blue retira en camión) o cambia el embalaje.");
   $("tbody").innerHTML=rows.join("");
+  // Blue cobra todos los bultos a una misma dirección como UN envío: el mayor entre la suma de pesos físicos y la suma de volumétricos
+  const consW=Math.max(sumF,sumV), cc=consW>0?cost(consW,t):{i:null,base:0,ex:0,neto:0}, total=cc.neto;
+  $("tfoot").innerHTML=`<tr class="sum"><td class="lbl">Envío (${pieces.length} bulto${pieces.length>1?"s":""})</td>
+    <td class="${sumF>=sumV&&sumF>0?"win":""}">${kg(sumF)}</td><td class="${sumV>sumF?"win":""}">${kg(sumV)}</td><td>${kg(consW)}</td>
+    <td>${cc.i===null?"—":`<span class="chip">${TR[cc.i]}</span>`}</td><td>${cc.base?clp(cc.base):"—"}</td><td>${cc.ex?clp(cc.ex):"—"}</td>
+    <td><strong>${clp(total)}</strong></td></tr>`;
   if(autoCob&&document.activeElement!==$("cobrado")){ $("cobrado").value=total>0?Math.round(total).toLocaleString("es-CL"):""; }
   $("cobrado").classList.toggle("auto",autoCob&&total>0);
   $("cobHint").innerHTML=autoCob
     ? (total>0?"<strong>Rellenado automático</strong> con el costo Blue. Escribe otro monto si cobras distinto.":"¿No sabes cuánto cobrar? Déjalo en 0 y completa los bultos: se rellena solo con el costo Blue.")
     : "Monto ingresado a mano. Bórralo o pon 0 para volver al cálculo automático.";
   const cob=autoCob?total:numMoney($("cobrado").value), diff=cob-total;
-  const consW=Math.max(sumF,sumV), cons=consW>0?cost(consW,t).neto:0;
   const ivaTxt="con IVA";
   $("totals").innerHTML=`
     <div class="tot main"><span class="k">Costo Blue Express (${pieces.length} bulto${pieces.length>1?"s":""}, ${ivaTxt})</span><span class="v">${clp(total)}</span></div>
     <div class="tot"><span class="k">Envío cobrado al cliente</span><span class="v">${clp(cob)}</span></div>
     <div class="tot ${diff<0?"neg":"pos"}"><span class="k">${diff<0?"Envío que absorbe Mercado Plaga":"Envío a favor"}</span><span class="v">${clp(Math.abs(diff))}</span></div>`;
-  $("platform").innerHTML=`Así lo mostraría la plataforma Blue: volumen total <strong>${(sumVol/1e6).toLocaleString("es-CL",{maximumFractionDigits:3})} m³</strong>, peso físico total <strong>${kg(sumF)}</strong>, peso volumétrico total <strong>${kg(sumV)}</strong>. Si Blue cobrara todo como un solo envío consolidado, serían ${clp(cons)} (${ivaTxt}).`;
+  $("platform").innerHTML=`Blue cobra todos los bultos a una misma dirección como un solo envío: suma los pesos físicos (<strong>${kg(sumF)}</strong>) y los volumétricos (<strong>${kg(sumV)}</strong>), cobra el mayor y aplica una sola tarifa. Volumen total ${(sumVol/1e6).toLocaleString("es-CL",{maximumFractionDigits:3})} m³.${pieces.length>1&&separate>0?` Como envíos separados (una orden por bulto) costaría ${clp(separate)}.`:""}`;
   $("alerts").innerHTML=alerts.map(a=>`<div class="alert bad">${a}</div>`).join("");
   calcMargin(total/(1+IVA),cob);
 }
